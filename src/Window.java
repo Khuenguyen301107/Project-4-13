@@ -1,9 +1,6 @@
 package src;
 import javax.swing.JFrame;
 
-/**
- * Window
- */
 
 public class Window {
 
