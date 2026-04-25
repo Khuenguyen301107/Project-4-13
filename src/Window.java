@@ -10,7 +10,7 @@ public class Window {
 
 
     public Window(){
-        window = new JFrame("Tetris Game");
+        window = new JFrame("Project 4-13");
         window.setSize(WIDTH, HEIGHT);
         window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         window.setResizable(false);
