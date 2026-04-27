@@ -8,9 +8,12 @@ public class GamePanel extends JPanel implements Runnable {
     private int winScale;
     private final int cols = 13; 
     private final int rows = 21; 
-    private final int brickSize = 13; 
+    private final int brickSize = 13;
 
-    
+    // ---[Hệ thống Điểm số]---
+    private int score = 0;
+    private Font gameFont = new Font("Arial", Font.BOLD, 18);
+
     private int fallDelay = 40; 
     private int fastFallDelay = 5; 
     
@@ -30,20 +33,19 @@ public class GamePanel extends JPanel implements Runnable {
     private BufferedImage[] brickTexture = new BufferedImage[6];
     private Thread gameThread;
 
-    
     private final int[][][] SHAPES = {
-        {{0,1}, {1,1}, {2,1}, {3,1}}, 
-        {{0,0}, {1,0}, {0,1}, {1,1}}, 
-        {{1,0}, {0,1}, {1,1}, {2,1}}, 
-        {{1,0}, {2,0}, {0,1}, {1,1}}, 
-        {{0,0}, {1,0}, {1,1}, {2,1}}, 
-        {{0,0}, {0,1}, {1,1}, {2,1}}, 
-        {{2,0}, {0,1}, {1,1}, {2,1}}  
+        {{0,1}, {1,1}, {2,1}, {3,1}}, // I
+        {{0,0}, {1,0}, {0,1}, {1,1}}, // O
+        {{1,0}, {0,1}, {1,1}, {2,1}}, // T
+        {{1,0}, {2,0}, {0,1}, {1,1}}, // S
+        {{0,0}, {1,0}, {1,1}, {2,1}}, // Z
+        {{0,0}, {0,1}, {1,1}, {2,1}}, // J
+        {{2,0}, {0,1}, {1,1}, {2,1}}  // L
     };
 
     public GamePanel(int winScale) {
         this.winScale = winScale;
-        this.setPreferredSize(new Dimension(screenWidth * winScale, screenHeight * winScale));
+        this.setPreferredSize(new Dimension(screenWidth * winScale, (screenHeight + 30) * winScale)); // Cộng thêm khoảng trống để hiện điểm
         this.setBackground(Color.BLACK);
         this.setDoubleBuffered(true);
         this.setFocusable(true);
@@ -78,7 +80,6 @@ public class GamePanel extends JPanel implements Runnable {
         for (int[] p : shape) {
             int targetX = (newX / brickSize) + p[0];
             int targetY = (newY / brickSize) + p[1];
-            
             if (targetX < 0 || targetX >= cols || targetY >= rows) return false;
             if (targetY >= 0 && brickboard[targetY][targetX] > 0) return false;
         }
@@ -86,7 +87,6 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void rotateShape() {
-        
         int[][] rotated = new int[4][2];
         for (int i = 0; i < 4; i++) {
             rotated[i][0] = 2 - currentShape[i][1];
@@ -101,7 +101,8 @@ public class GamePanel extends JPanel implements Runnable {
         currentX = brickSize * 5; 
         currentY = 0;
         if (!canMove(currentX, currentY, currentShape)) {
-            brickboard = new int[rows][cols]; 
+            brickboard = new int[rows][cols];
+            score = 0; // Reset điểm khi thua
         }
     }
 
@@ -124,11 +125,10 @@ public class GamePanel extends JPanel implements Runnable {
         int count = 0;
         while(gameThread != null) {
             background.updateAnimation();
-            
             int currentDelay = isFastFalling ? fastFallDelay : fallDelay;
             if (count > currentDelay) {
                 if (canMove(currentX, currentY + brickSize, currentShape)) {
-                    currentY += brickSize; 
+                    currentY += brickSize;
                 } else {
                     lockToGrid();
                     checkForFullRow();
@@ -137,7 +137,6 @@ public class GamePanel extends JPanel implements Runnable {
                 count = 0;
             }
             count++;
-            
             repaint();
             try { Thread.sleep(16); } catch (Exception e) {}
         }
@@ -147,22 +146,29 @@ public class GamePanel extends JPanel implements Runnable {
         for (int[] p : currentShape) {
             int gridX = (currentX / brickSize) + p[0];
             int gridY = (currentY / brickSize) + p[1];
-            if (gridY >= 0 && gridY < rows) {
-                brickboard[gridY][gridX] = (currentType % 6) + 1;
-            }
+            if (gridY >= 0 && gridY < rows) brickboard[gridY][gridX] = (currentType % 6) + 1;
         }
     }
 
+    // ---[LOGIC TÍNH ĐIỂM THEO QUY TẮC CỦA BẠN]---
     private void checkForFullRow() {
+        int linesCleared = 0;
         for (int r = rows - 1; r >= 0; r--) {
             boolean full = true;
             for (int c = 0; c < cols; c++) if (brickboard[r][c] == 0) full = false;
             if (full) {
+                linesCleared++;
                 for (int row = r; row > 0; row--) brickboard[row] = brickboard[row-1].clone();
                 brickboard[0] = new int[cols];
                 r++; 
             }
         }
+
+        // Áp dụng bảng điểm từ ảnh của bạn
+        if (linesCleared == 1) score += 100;
+        else if (linesCleared == 2) score += 300;
+        else if (linesCleared == 3) score += 500;
+        else if (linesCleared >= 4) score += 800;
     }
 
     @Override
@@ -170,36 +176,28 @@ public class GamePanel extends JPanel implements Runnable {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-        
+        // Vẽ lưới nền
         background.drawGrid(g2, rows, cols, brickSize, winScale);
 
-        
+        // Vẽ gạch cố định
         for (int r = 0; r < rows; r++) {
             for (int c = 0; c < cols; c++) {
-                if (brickboard[r][c] > 0) {
-                    drawPerfectBrick(g2, c * brickSize, r * brickSize, brickboard[r][c] - 1);
-                }
+                if (brickboard[r][c] > 0) drawPerfectBrick(g2, c * brickSize, r * brickSize, brickboard[r][c] - 1);
             }
         }
 
-        
-        for (int[] p : currentShape) {
-            drawPerfectBrick(g2, currentX + (p[0] * brickSize), currentY + (p[1] * brickSize), currentType % 6);
-        }
+        // Vẽ gạch đang rơi
+        for (int[] p : currentShape) drawPerfectBrick(g2, currentX + (p[0] * brickSize), currentY + (p[1] * brickSize), currentType % 6);
+
+        // ---[VẼ BẢNG ĐIỂM]---
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font("Arial", Font.BOLD, 10 * winScale)); // Tự scale cỡ chữ theo cửa sổ
+        g2.drawString("SCORE: " + score, 10 * winScale, (screenHeight + 20) * winScale);
     }
 
-    
     private void drawPerfectBrick(Graphics2D g2, int x, int y, int texIdx) {
         if (brickTexture[texIdx] != null) {
-            
-            g2.drawImage(brickTexture[texIdx], 
-                         x * winScale, 
-                         y * winScale, 
-                         brickSize * winScale, 
-                         brickSize * winScale, 
-                         null);
-            
-            
+            g2.drawImage(brickTexture[texIdx], x * winScale, y * winScale, brickSize * winScale, brickSize * winScale, null);
             g2.setColor(new Color(0, 0, 0, 50));
             g2.drawRect(x * winScale, y * winScale, brickSize * winScale, brickSize * winScale);
         }
