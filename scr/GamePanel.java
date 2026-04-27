@@ -11,7 +11,9 @@ public class GamePanel extends JPanel implements Runnable {
     private int winScale;
     private int cols = 7; //default is 13
     private int rows = 21;
-    private int startCol = 2; //default is 6
+
+    private int startCol = 3; //default is 6
+
     private int brickPixelHitBox = 13;
     
     private int setSpeedBase = 1;
@@ -99,6 +101,13 @@ public class GamePanel extends JPanel implements Runnable {
                 for (int currentCol = 0; currentCol < cols; currentCol++) {
                     brickboard[currentRow][currentCol] = 0;
                 }
+
+                int rowAbove = currentRow - 1;
+                for (int currentCol = 0; currentCol < cols; currentCol++) {
+                    brickboard[currentRow][currentCol] = brickboard[rowAbove][currentCol];
+                    brickboard[rowAbove][currentCol] = 0;
+                }
+
 
 
             }
