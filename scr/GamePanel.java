@@ -9,10 +9,10 @@ import javax.sound.sampled.*;
 public class GamePanel extends JPanel implements Runnable {
     //---[Main window and scaling stuff]---
     private int winScale;
-    private int cols = 7; //default is 13
-    private int rows = 21;
+    private int cols = 13; // DEFAULT 13
+    private int rows = 21; // DEFAULT 21
 
-    private int startCol = 3; //default is 6
+    private int startCol = 6; // DEFAULT 6
 
     private int brickPixelHitBox = 13;
     
@@ -102,21 +102,18 @@ public class GamePanel extends JPanel implements Runnable {
                     brickboard[currentRow][currentCol] = 0;
                 }
 
-                int rowAbove = currentRow - 1;
-                for (int currentCol = 0; currentCol < cols; currentCol++) {
-                    brickboard[currentRow][currentCol] = brickboard[rowAbove][currentCol];
-                    brickboard[rowAbove][currentCol] = 0;
+                for (int r = currentRow; r > 0; r--) {
+                    for (int c = 0; c < cols; c++) {
+                        brickboard[r][c] = brickboard[r - 1][c];
+                    }
                 }
 
+                for (int c = 0; c < cols; c++) {
+                    brickboard[0][c] = 0;
+                }
 
-
+                currentRow++;
             }
-
-
-
-
-
-
         }
     }
 
