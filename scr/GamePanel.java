@@ -9,9 +9,11 @@ import javax.sound.sampled.*;
 public class GamePanel extends JPanel implements Runnable {
     //---[Main window and scaling stuff]---
     private int winScale;
-    private int cols = 13;
-    private int rows = 21;
-    private int startCol = 6;
+    private int cols = 13; // DEFAULT 13
+    private int rows = 21; // DEFAULT 21
+
+    private int startCol = 6; // DEFAULT 6
+
     private int brickPixelHitBox = 13;
     
     private int setSpeedBase = 1;
@@ -83,6 +85,38 @@ public class GamePanel extends JPanel implements Runnable {
         });
     }
 
+    //---[Full line check and pop, god I ####ing hate this part]---
+    private void checkForFullRow() {
+        for (int currentRow = rows - 1; currentRow > 0; currentRow--) {
+            boolean rowIsFull = true;
+
+            for (int currentCol = 0; currentCol < cols; currentCol++) {
+                if (brickboard[currentRow][currentCol] == 0) {
+                    rowIsFull = false;
+                    break;
+                }
+            }
+
+            if (rowIsFull) {
+                for (int currentCol = 0; currentCol < cols; currentCol++) {
+                    brickboard[currentRow][currentCol] = 0;
+                }
+
+                for (int r = currentRow; r > 0; r--) {
+                    for (int c = 0; c < cols; c++) {
+                        brickboard[r][c] = brickboard[r - 1][c];
+                    }
+                }
+
+                for (int c = 0; c < cols; c++) {
+                    brickboard[0][c] = 0;
+                }
+
+                currentRow++;
+            }
+        }
+    }
+
     //---[Loads brick textures]---
     private void loadTexture() {
         String[] colourNames = {"Purple", "Red", "Orange", "Yellow", "Green", "Cyan"};
@@ -120,6 +154,8 @@ public class GamePanel extends JPanel implements Runnable {
                     if (brickY < screenHeight - brickPixelHitBox && !isBrickBelow) { brickY++; }
                     else {
                         brickboard[gridY][gridX] = currentBrickIDColour;
+
+                        checkForFullRow();
 
                         brickY = 0;
                         brickX = brickPixelHitBox * startCol;
