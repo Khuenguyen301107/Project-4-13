@@ -1,17 +1,26 @@
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 
 public class Ui extends JPanel {
     private GamePanel gamePanel;
     private int score = 0;
-    private int[][] nextShape;
     private int winScale;
+    private int[][] nextShape;
+    private int nextColorID;
+    private int nextSpecialIndex;
+
+    public void setNextShapeData(int[][] shape, int colorID, int specialIndex) {
+        this.nextShape = shape;
+        this.nextColorID = colorID;
+        this.nextSpecialIndex = specialIndex;
+    }
 
     public Ui(int winScale) {
         this.winScale = winScale;
-        int gameWidth = gamePanel.cols * gamePanel.brickPixelHitBox * winScale; 
-        int sidebarWidth = 8 * gamePanel.brickPixelHitBox * winScale;
-        int totalHeight = gamePanel.rows * gamePanel.brickPixelHitBox * winScale;
+        
+        int gameWidth = GamePanel.cols * GamePanel.brickPixelHitBox * winScale; 
+        int sidebarWidth = 8 * GamePanel.brickPixelHitBox * winScale;
+        int totalHeight = GamePanel.rows * GamePanel.brickPixelHitBox * winScale;
 
         this.setPreferredSize(new Dimension(gameWidth + sidebarWidth, totalHeight));
         this.setLayout(new BorderLayout());
@@ -31,6 +40,18 @@ public class Ui extends JPanel {
 
     public void setNextShape(int[][] shape) {
         this.nextShape = shape;
+    }
+
+    private Color getSimpleColor(int id) {
+        switch(id) {
+            case 1: return Color.MAGENTA;
+            case 2: return Color.RED;
+            case 3: return Color.ORANGE;
+            case 4: return Color.YELLOW;
+            case 5: return Color.GREEN;
+            case 6: return Color.CYAN;
+            default: return Color.WHITE;
+        }
     }
 
     @Override
@@ -55,13 +76,22 @@ public class Ui extends JPanel {
 
         // Draw the next piece preview, yosh
         if (nextShape != null) {
-            for (int r = 0; r < nextShape.length; r++) {
+            int nextBlockCount = 0;
+
+            for (int r = nextShape.length - 1; r >= 0; r--) {
                 for (int c = 0; c < nextShape[r].length; c++) {
                     if (nextShape[r][c] == 1) {
                         int previewX = textX + (c * gamePanel.brickPixelHitBox * winScale);
                         int previewY = (gamePanel.previewNextPiecePositionY * winScale / 2) + (r * gamePanel.brickPixelHitBox * winScale);
-                        g2.setColor(Color.WHITE);
+
+                        if (nextBlockCount == nextSpecialIndex) {
+                            g2.setColor(Color.DARK_GRAY);
+                        } else {
+                            g2.setColor(getSimpleColor(nextColorID));
+                        }
+
                         g2.fillRect(previewX, previewY, gamePanel.brickPixelHitBox * winScale - 1, gamePanel.brickPixelHitBox * winScale - 1);
+                        nextBlockCount++;
                     }
                 }
             }

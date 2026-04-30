@@ -1,8 +1,8 @@
-import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import javax.imageio.ImageIO;
+import javax.swing.*;
 
 public class GamePanel extends JPanel implements Runnable {
     //---[Main window and scaling stuff]---
@@ -12,6 +12,8 @@ public class GamePanel extends JPanel implements Runnable {
     public static final int rows = 21; 
     private int startCol = 5; 
     public static final int brickPixelHitBox = 13;
+
+    public static final int verticBrickPercent = 30;
 
     private float previewPieceTransparency = 0.3f;
 
@@ -30,7 +32,14 @@ public class GamePanel extends JPanel implements Runnable {
     private int screenHeight = brickPixelHitBox * rows;
 
     private int[][] currentShape;
-    private int[][] nextShape; 
+    private int[][] nextShape;
+
+    private int nextBrickIDColour = 1;
+    private int nextSpecialBlockIndex = -1;
+
+
+    public static final int numberOfBricks = 6;
+    private int specialBlockIndex = -1;
 
     private boolean isFastFalling = false;
     private int currentBrickIDColour = 1;
@@ -43,7 +52,7 @@ public class GamePanel extends JPanel implements Runnable {
     private int brickX = brickPixelHitBox * startCol;
     private int brickY = 0;
     private int frameCounter = 0;
-    private BufferedImage[] brickTexture = new BufferedImage[6];
+    private BufferedImage[] brickTexture = new BufferedImage[numberOfBricks + 1];
 
     public GamePanel(int winScale, Ui ui) {
         this.winScale = winScale;
@@ -106,14 +115,27 @@ public class GamePanel extends JPanel implements Runnable {
 
     //---[The shape spawn thing]---
     private void spawnNewShape() {
-        if (nextShape == null) nextShape = Shapes.getRandomShape();
-        currentShape = nextShape;
-        nextShape = Shapes.getRandomShape();
-        ui.setNextShape(nextShape); 
 
+        // Creates the next shape of bricks
+        if (nextShape == null) {
+            nextShape = Shapes.getRandomShape();
+            nextBrickIDColour = rand.nextInt(numberOfBricks) + 1;
+            nextSpecialBlockIndex = (rand.nextInt(100) < verticBrickPercent) ? rand.nextInt(4) : -1;
+        }
+        // Movin' next to current
+        currentShape = nextShape;
+        currentBrickIDColour = nextBrickIDColour;
+        specialBlockIndex = nextSpecialBlockIndex;
+        // We do the exact same thingy again, as the old "Next" shapw thingy becomes current, we make a new "Next", yippe.
+        nextShape = Shapes.getRandomShape();
+        nextBrickIDColour = rand.nextInt(numberOfBricks) + 1;
+        nextSpecialBlockIndex = (rand.nextInt(100) < verticBrickPercent) ? rand.nextInt(4) : -1;
+
+        ui.setNextShapeData(nextShape, nextBrickIDColour, nextSpecialBlockIndex);
+
+        //Bring the falling bricks back to its starting point, simple (but it took me a lot of time to realise that the falling brick, once it collides, make a clone of itself, and the falling brick returns to its starting point under a new appearance).
         brickY = 0;
         brickX = brickPixelHitBox * startCol;
-        currentBrickIDColour = rand.nextInt(6) + 1;
 
         if (!isValidPosition(brickX, brickY, currentShape)) {
             isGameOver = true;
@@ -142,7 +164,7 @@ public class GamePanel extends JPanel implements Runnable {
         }
     }
 
-    //---Position check stuff]---
+    //---[Position check stuff]---
     private boolean isValidPosition(int x, int y, int[][] shape) {
         for (int r = 0; r < shape.length; r++) {
             for (int c = 0; c < shape[r].length; c++) {
@@ -161,7 +183,35 @@ public class GamePanel extends JPanel implements Runnable {
         return true;
     }
 
+    //---[The bomb activation stuff]---
+    private void triggerBomb(int col) {
+        int bombID = 7;
+        
+        // Offset thingy (x - 1, x, and x + 1) for blast radius
+        for (int offSet = -1; offSet <= 1; offSet++) {
+            int targetCols = col + offSet; 
+
+            if (targetCols >= 0 && targetCols < cols) {
+                for (int r = 0; r < rows; r++) {
+                    if (brickboard[r][targetCols] != 0) {
+                        if (brickboard[r][targetCols] == bombID) {
+                            brickboard[r][targetCols] = 0; // Remove the current found bomb to prevent infinite loops
+                            triggerBomb(targetCols); //I didn't know there is a concept called Recursion, by triggering the code itself again before the column clear, it creates 2 tasks! WHAT?
+                        } else {
+                            ui.updateScore(1);
+                            brickboard[r][targetCols] = 0;
+                        }
+                    }
+                }
+            }
+        }
+        sfxPlayer.playSFX("resources/sfx/SpiderBounce1.wav");
+    }
+
+    //---[This is the popping mechanic I think, there's so much now I'm confused]
     private void checkForFullRow() {
+        int bombID = 7;
+
         for (int currentRow = rows - 1; currentRow > 0; currentRow--) {
             boolean rowIsFull = true;
             for (int currentCol = 0; currentCol < cols; currentCol++) {
@@ -171,7 +221,16 @@ public class GamePanel extends JPanel implements Runnable {
                 }
             }
             if (rowIsFull) {
-                ui.updateScore(100); 
+                // Look for bombs in the full row
+                for (int currentCol = 0; currentCol < cols; currentCol++) {
+                    if (brickboard[currentRow][currentCol] == bombID) {
+                        // Found a bomb, yes Rico, kaboom.
+                        triggerBomb(currentCol); 
+                    }
+                }
+
+                // Standard row clear behavior (if no bomb was hit, or after bomb yay)
+                ui.updateScore(10); 
                 for (int r = currentRow; r > 0; r--) {
                     for (int c = 0; c < cols; c++) {
                         brickboard[r][c] = brickboard[r - 1][c];
@@ -184,8 +243,9 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void loadTexture() {
-        String[] colourNames = {"Purple", "Red", "Orange", "Yellow", "Green", "Cyan"};
+        String[] colourNames = {"Purple", "Red", "Orange", "Yellow", "Green", "Cyan", "Bomb"};
         try {
+            brickTexture = new BufferedImage[colourNames.length];
             for (int i = 0; i < colourNames.length; i++) {
                 brickTexture[i] = ImageIO.read(new File("resources/textures/bricks/" + colourNames[i] + " Brick.png"));
             }
@@ -205,15 +265,21 @@ public class GamePanel extends JPanel implements Runnable {
                     for (int i = 0; i < currentSpeed; i++) {
                         if (brickY % brickPixelHitBox == 0) {
                             if (!isValidPosition(brickX, brickY + brickPixelHitBox, currentShape)) {
-                                for (int r = 0; r < currentShape.length; r++) {
+                                int landedBlockCount = 0;
+
+                                for (int r = currentShape.length - 1; r >= 0; r--) {
                                     for (int c = 0; c < currentShape[r].length; c++) {
                                         if (currentShape[r][c] == 1) {
                                             int gridY = (brickY / brickPixelHitBox) + r;
                                             int gridX = (brickX / brickPixelHitBox) + c;
 
                                             if (gridY >= 0 && gridY < rows && gridX >= 0 && gridX < cols) {
-                                                brickboard[gridY][gridX] = currentBrickIDColour;
+                                                if (landedBlockCount == specialBlockIndex) {
+                                                    brickboard[gridY][gridX] = numberOfBricks + 1;
+                                                }
+                                                else { brickboard[gridY][gridX] = currentBrickIDColour; }
                                             }
+                                            landedBlockCount++;
                                         }
                                     }
                                 }
@@ -292,35 +358,43 @@ public class GamePanel extends JPanel implements Runnable {
             int landingY = getLandingY();
             Composite originalComposite = g2.getComposite();
 
-            // Set transparency
+            // Set transparency for faker pieces
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, previewPieceTransparency));
-
+            int fakerBlockCount = 0;
             for (int r = currentShape.length - 1; r >= 0; r--) {
-                for (int c = 0; c < currentShape[r].length; c++) {
+                for (int c = 0; c < currentShape[r].length; c++) {  
                     if (currentShape[r][c] == 1) {
-                        int drawX = (brickX + (c * brickPixelHitBox)) * winScale;
+                        int textureIndex = (fakerBlockCount == specialBlockIndex) ? 6 : (currentBrickIDColour - 1);
 
+                        int drawX = (brickX + (c * brickPixelHitBox)) * winScale;
                         int drawY = (landingY + (r * brickPixelHitBox) - 6) * winScale;
-                        g2.drawImage(brickTexture[currentBrickIDColour - 1], drawX, drawY, 
-                                    brickPixelHitBox * winScale, (brickPixelHitBox + 6) * winScale, null);
+
+                        g2.drawImage(brickTexture[textureIndex], drawX, drawY, brickPixelHitBox * winScale, (brickPixelHitBox + 6) * winScale, null);
+
+                        fakerBlockCount++;
                     }
                 }
             }
             
-            // Here will reset transparency to draw the real piece normally
+            // Here will reset transparency to draw the REAL piece normally
             g2.setComposite(originalComposite);
 
             //---[The falling shapes part]---
+            int fallingBlockCount = 0;
             for (int r = currentShape.length - 1; r >= 0; r--) {
                 for (int c = 0; c < currentShape[r].length; c++) {
                     if (currentShape[r][c] == 1) {
+                        int textureIndex = (fallingBlockCount == specialBlockIndex) ? 6 : (currentBrickIDColour - 1);
+
                         int drawX = (brickX + (c * brickPixelHitBox)) * winScale;
                         int drawY = (brickY + (r * brickPixelHitBox) - 6) * winScale;
-                        g2.drawImage(brickTexture[currentBrickIDColour - 1], 
+
+                        g2.drawImage(brickTexture[textureIndex], 
                             drawX, drawY, 
                             brickPixelHitBox * winScale, 
                             (brickPixelHitBox + 6) * winScale, 
                             null);
+                        fallingBlockCount++;
                     }
                 }
             }
