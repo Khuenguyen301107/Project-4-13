@@ -48,6 +48,8 @@ public class GamePanel extends JPanel implements Runnable {
     private boolean isGameOver = false;
     private int gameOverOption = 0;
 
+    //---[]---
+
     //---[Brick math, positions]---
     private int brickX = brickPixelHitBox * startCol;
     private int brickY = 0;
