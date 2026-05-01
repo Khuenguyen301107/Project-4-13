@@ -42,13 +42,16 @@ public class GamePanel extends JPanel implements Runnable {
     private java.util.Random rand = new java.util.Random();
 
     private boolean isGameOver = false;
-    private boolean historyShown = false; // BIẾN MỚI: Để kiểm soát việc hiện bảng lịch sử
+    private boolean historyShown = false; 
     private int gameOverOption = 0;
 
     private int brickX = brickPixelHitBox * startCol;
     private int brickY = 0;
     private int frameCounter = 0;
     private BufferedImage[] brickTexture = new BufferedImage[numberOfBricks + 1];
+    
+    // --- BIẾN MỚI: Hình nền bên trái ---
+    private BufferedImage bgImage; 
 
     public GamePanel(int winScale, Ui ui) {
         this.winScale = winScale;
@@ -129,12 +132,10 @@ public class GamePanel extends JPanel implements Runnable {
             isGameOver = true;
             sfxPlayer.playSFX("resources/sfx/forklift-certified.wav");
             
-            // KÍCH HOẠT MÀN HÌNH LỊCH SỬ TẠI ĐÂY
             if (!historyShown) {
                 historyShown = true;
                 SwingUtilities.invokeLater(() -> {
                     JFrame parent = (JFrame) SwingUtilities.getWindowAncestor(this);
-                    // Lấy điểm hiện tại từ đối tượng ui của bạn
                     GameOverHistory historyUI = new GameOverHistory(parent, ui.getScore());
                     historyUI.setVisible(true);
                 });
@@ -146,7 +147,7 @@ public class GamePanel extends JPanel implements Runnable {
         brickboard = new int[rows][cols];
         ui.resetScore();
         isGameOver = false;
-        historyShown = false; // RESET biến cờ khi chơi lại
+        historyShown = false; 
         gameOverOption = 0;
         spawnNewShape();
     }
@@ -233,7 +234,11 @@ public class GamePanel extends JPanel implements Runnable {
             for (int i = 0; i < colourNames.length; i++) {
                 brickTexture[i] = ImageIO.read(new File("resources/textures/bricks/" + colourNames[i] + " Brick.png"));
             }
-        } catch (Exception e) { System.out.println("Texture Error: " + e.getMessage()); }
+            
+            // --- LOAD HÌNH NỀN CÂY DỪA ---
+            bgImage = ImageIO.read(new File("resources/textures/backgrounds/bg_game.png"));
+            
+        } catch (Exception e) { System.out.println("Texture/BG Error: " + e.getMessage()); }
     }
 
     @Override
@@ -307,8 +312,16 @@ public class GamePanel extends JPanel implements Runnable {
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
+
+        // --- 1. VẼ HÌNH NỀN CÂY DỪA TRƯỚC TIÊN ---
+        if (bgImage != null) {
+            g2.drawImage(bgImage, 0, 0, getWidth(), getHeight(), null);
+        }
+
+        // --- 2. VẼ LƯỚI ---
         background.drawGrid(g2, rows, cols, brickPixelHitBox, winScale);
 
+        // --- 3. VẼ CÁC KHỐI GẠCH ĐÃ ĐẶT ---
         for (int r = rows - 1; r >= 0; r--) {
             for (int c = 0; c < cols; c++) {
                 if (brickboard[r][c] > 0) {
@@ -322,6 +335,7 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
+        // --- 4. VẼ KHỐI ĐANG RƠI VÀ PREVIEW ---
         if (currentShape != null) {
             int landingY = getLandingY();
             Composite originalComposite = g2.getComposite();
@@ -353,6 +367,7 @@ public class GamePanel extends JPanel implements Runnable {
             }
         }
 
+        // --- 5. LỚP PHỦ GAME OVER ---
         if (isGameOver) {
             g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.7f));
             g2.setColor(Color.BLACK);

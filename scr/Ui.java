@@ -1,4 +1,7 @@
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import javax.imageio.ImageIO;
 import javax.swing.*;
 
 public class Ui extends JPanel {
@@ -8,6 +11,9 @@ public class Ui extends JPanel {
     private int[][] nextShape;
     private int nextColorID;
     private int nextSpecialIndex;
+    
+    // --- BIẾN MỚI: Hình nền bên phải ---
+    private BufferedImage sidebarBg;
 
     public void setNextShapeData(int[][] shape, int colorID, int specialIndex) {
         this.nextShape = shape;
@@ -18,6 +24,13 @@ public class Ui extends JPanel {
     public Ui(int winScale) {
         this.winScale = winScale;
         
+        // --- LOAD HÌNH NỀN BIỂN XANH (HÌNH SỐ 3) ---
+        try {
+            sidebarBg = ImageIO.read(new File("resources/textures/backgrounds/bg_sidebar.png"));
+        } catch (Exception e) { 
+            System.out.println("Sidebar BG Error: " + e.getMessage()); 
+        }
+
         int gameWidth = GamePanel.cols * GamePanel.brickPixelHitBox * winScale; 
         int sidebarWidth = 8 * GamePanel.brickPixelHitBox * winScale;
         int totalHeight = GamePanel.rows * GamePanel.brickPixelHitBox * winScale;
@@ -38,11 +51,10 @@ public class Ui extends JPanel {
         this.score = 0;
     }
 
-    // --- HÀM MỚI ĐƯỢC THÊM VÀO THEO ĐỀ XUẤT ---
+    // --- HÀM TRẢ VỀ ĐIỂM SỐ (Dùng cho Gameplay History) ---
     public int getScore() {
-        return this.score; // Trả về điểm số hiện tại để hiển thị trong lịch sử
+        return this.score;
     }
-    // -----------------------------------------
 
     public void setNextShape(int[][] shape) {
         this.nextShape = shape;
@@ -65,25 +77,33 @@ public class Ui extends JPanel {
         super.paintComponent(g);
         Graphics2D g2 = (Graphics2D) g;
 
-        // The sidebar background
-        g2.setColor(new Color(30, 30, 30));
-        g2.fillRect(gamePanel.getWidth(), 0, getWidth() - gamePanel.getWidth(), getHeight());
+        // Vị trí bắt đầu của sidebar
+        int sidebarX = gamePanel.getWidth();
+        int sidebarWidth = getWidth() - sidebarX;
 
-        //---[UI text styling stuff]---
+        // --- 1. VẼ HÌNH NỀN BIỂN XANH THAY CHO MÀU XÁM ---
+        if (sidebarBg != null) {
+            g2.drawImage(sidebarBg, sidebarX, 0, sidebarWidth, getHeight(), null);
+        } else {
+            // Nếu không load được ảnh thì dùng màu tối dự phòng
+            g2.setColor(new Color(30, 30, 30));
+            g2.fillRect(sidebarX, 0, sidebarWidth, getHeight());
+        }
+
+        //---[UI text styling stuff - Vẽ đè lên trên nền]---
         g2.setColor(Color.WHITE);
         g2.setFont(new Font("Arial", Font.BOLD, 10 * winScale));
         
-        int textX = gamePanel.getWidth() + (20 * winScale / 2);
+        int textX = sidebarX + (20 * winScale / 2);
 
         g2.drawString("SCORE", textX, 50 * winScale / 2);
         g2.drawString(String.format("%06d", score), textX, 80 * winScale / 2);
 
         g2.drawString("NEXT", textX, 150 * winScale / 2);
 
-        // Draw the next piece preview, yosh
+        // Draw the next piece preview
         if (nextShape != null) {
             int nextBlockCount = 0;
-
             for (int r = nextShape.length - 1; r >= 0; r--) {
                 for (int c = 0; c < nextShape[r].length; c++) {
                     if (nextShape[r][c] == 1) {
